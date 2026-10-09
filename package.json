@@ -47,6 +47,9 @@
   "bugs": {
     "url": "https://github.com/Alexxanddr/homebridge-pitpat-treadmill/issues"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@stoprocent/noble": "2.8.0"
   },

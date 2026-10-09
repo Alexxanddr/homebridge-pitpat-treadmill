@@ -176,7 +176,7 @@ The initial packet structure was reimplemented from the MIT-licensed [`azmke/pit
 
 ## Publishing
 
-The npm name `homebridge-pitpat-treadmill` was unregistered when checked on 9 October 2026. Publication is manual and must not occur until hardware validation and release review are complete. No release workflow in this repository publishes automatically.
+The package is published on [npm](https://www.npmjs.com/package/homebridge-pitpat-treadmill). Future releases use npm Trusted Publishing from GitHub Actions, without a stored npm token. See [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 ## License
 
