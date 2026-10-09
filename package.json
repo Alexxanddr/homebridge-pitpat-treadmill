@@ -1,0 +1,63 @@
+{
+  "name": "homebridge-pitpat-treadmill",
+  "displayName": "PitPat Treadmill",
+  "version": "0.1.0",
+  "description": "Local Homebridge integration for PitPat treadmills over Bluetooth Low Energy.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "docs",
+    "config.schema.json",
+    "CHANGELOG.md",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || ^26.0.0",
+    "homebridge": "^2.0.0"
+  },
+  "scripts": {
+    "build": "rimraf dist && tsc",
+    "check": "npm run format:check && npm run lint && npm run build && npm test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings=0",
+    "prepublishOnly": "npm run check",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "supports-hap",
+    "pitpat",
+    "treadmill",
+    "bluetooth-low-energy",
+    "ble",
+    "homekit"
+  ],
+  "author": "Alexxanddr",
+  "license": "MIT",
+  "homepage": "https://github.com/Alexxanddr/homebridge-pitpat-treadmill#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alexxanddr/homebridge-pitpat-treadmill.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Alexxanddr/homebridge-pitpat-treadmill/issues"
+  },
+  "dependencies": {
+    "@stoprocent/noble": "2.8.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.0.0",
+    "homebridge": "^2.0.0",
+    "prettier": "^3.6.0",
+    "rimraf": "^6.0.0",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.0.0"
+  }
+}

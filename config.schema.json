@@ -1,0 +1,84 @@
+{
+  "pluginAlias": "PitPatTreadmill",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Local BLE control for a PitPat treadmill. Remote motor start is disabled by default. Configure the stable BLE identifier shown in the Homebridge logs.",
+  "footerDisplay": "The Bluetooth STOP command is not a certified emergency stop. Keep the physical safety control accessible.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "PitPat Treadmill",
+        "minLength": 1,
+        "required": true
+      },
+      "deviceIdentifier": {
+        "title": "BLE Device Identifier",
+        "type": "string",
+        "description": "CoreBluetooth UUID on macOS or BLE address/adapter identifier on Linux. Use the identifier reported by the discovery log.",
+        "minLength": 2,
+        "required": true
+      },
+      "maximumSpeedKph": {
+        "title": "Maximum Allowed Speed",
+        "type": "number",
+        "default": 6,
+        "minimum": 1.5,
+        "maximum": 6,
+        "multipleOf": 0.1,
+        "description": "Safety cap in km/h. The lower of this value and the limit reported by the treadmill is used.",
+        "required": true
+      },
+      "debug": {
+        "title": "Debug Logging",
+        "type": "boolean",
+        "default": false,
+        "description": "Log rate-limited protocol details. Serial-number bytes are redacted."
+      },
+      "allowRemoteStart": {
+        "title": "Allow Remote Motor Start",
+        "type": "boolean",
+        "default": false,
+        "description": "DANGEROUS: permits HomeKit, Siri and automations to start the belt. Leave disabled unless hardware validation has been completed."
+      },
+      "acknowledgeRemoteStartRisk": {
+        "title": "I Accept the Remote Start Risk",
+        "type": "boolean",
+        "default": false,
+        "description": "Must also be enabled before remote start is accepted. HomeKit cannot distinguish a manual action from an automation."
+      },
+      "reconnectInitialDelaySeconds": {
+        "title": "Initial Reconnect Delay",
+        "type": "integer",
+        "default": 5,
+        "minimum": 1,
+        "maximum": 60
+      },
+      "reconnectMaximumDelaySeconds": {
+        "title": "Maximum Reconnect Delay",
+        "type": "integer",
+        "default": 60,
+        "minimum": 5,
+        "maximum": 600
+      }
+    }
+  },
+  "layout": [
+    "name",
+    "deviceIdentifier",
+    "maximumSpeedKph",
+    "debug",
+    {
+      "type": "fieldset",
+      "title": "Advanced Safety Settings",
+      "items": [
+        "allowRemoteStart",
+        "acknowledgeRemoteStartRisk",
+        "reconnectInitialDelaySeconds",
+        "reconnectMaximumDelaySeconds"
+      ]
+    }
+  ]
+}
