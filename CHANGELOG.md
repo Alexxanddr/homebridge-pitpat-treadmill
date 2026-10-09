@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. The project follows Semantic Versioning.
 
+## [0.1.3] - 2026-10-09
+
+### Fixed
+
+- Attempt one controlled HCI controller reset when Noble remains outside the `poweredOn` state after a BLE link timeout.
+- Preserve normal reconnect backoff when the adapter cannot recover.
+
 ## [0.1.2] - 2026-10-09
 
 ### Fixed

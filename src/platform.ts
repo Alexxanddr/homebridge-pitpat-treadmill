@@ -47,7 +47,7 @@ export class PitPatPlatform implements DynamicPlatformPlugin {
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
     }
 
-    this.bleManager = new BleManager(config, new NobleTransport(), this.log);
+    this.bleManager = new BleManager(config, new NobleTransport(this.log), this.log);
     new TreadmillAccessory(accessory, this.bleManager, config, this.api, this.log);
     void this.bleManager.start().catch(() => undefined);
 

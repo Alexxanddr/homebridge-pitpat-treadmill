@@ -1,4 +1,5 @@
 import type { Characteristic, Noble, Peripheral } from '@stoprocent/noble';
+import type { Logger } from 'homebridge';
 
 import { FBA_NOTIFY_UUID, FBA_SERVICE_UUID, FBA_WRITE_UUID } from '../protocol/pitpatProtocol.js';
 import type { BleConnection, BleTransport } from './transport.js';
@@ -48,6 +49,8 @@ class NobleConnection implements BleConnection {
 export class NobleTransport implements BleTransport {
   private noble?: Noble;
 
+  public constructor(private readonly log: Pick<Logger, 'warn'>) {}
+
   private async loadNoble(): Promise<Noble> {
     if (!this.noble) {
       const module = await import('@stoprocent/noble');
@@ -58,7 +61,7 @@ export class NobleTransport implements BleTransport {
 
   public async connect(deviceIdentifier: string, timeoutMs: number): Promise<BleConnection> {
     const noble = await this.loadNoble();
-    await noble.waitForPoweredOnAsync(timeoutMs);
+    await this.ensurePoweredOn(noble, timeoutMs);
     const peripheral = await this.findPeripheral(noble, deviceIdentifier, timeoutMs);
     await peripheral.connectAsync();
 
@@ -86,6 +89,27 @@ export class NobleTransport implements BleTransport {
     } catch (error) {
       await peripheral.disconnectAsync().catch(() => undefined);
       throw error;
+    }
+  }
+
+  private async ensurePoweredOn(noble: Noble, timeoutMs: number): Promise<void> {
+    try {
+      await noble.waitForPoweredOnAsync(timeoutMs);
+      return;
+    } catch (error) {
+      if (noble.state === 'unauthorized' || noble.state === 'unsupported') {
+        throw error;
+      }
+      this.log.warn(`[PiTPAT] BLE adapter state is ${noble.state}; attempting one controller reset`);
+      noble.reset();
+      try {
+        await noble.waitForPoweredOnAsync(Math.min(timeoutMs, 10_000));
+      } catch (recoveryError) {
+        throw new Error(
+          `BLE adapter did not recover after reset (state ${noble.state}): ${errorMessage(recoveryError)}`,
+          { cause: recoveryError },
+        );
+      }
     }
   }
 
@@ -129,4 +153,8 @@ export class NobleTransport implements BleTransport {
       });
     });
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
