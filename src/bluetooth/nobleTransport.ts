@@ -53,6 +53,7 @@ export class NobleTransport implements BleTransport {
 
   private async loadNoble(): Promise<Noble> {
     if (!this.noble) {
+      configureNobleDbusAddress();
       const module = await import('@stoprocent/noble');
       this.noble = module.default;
     }
@@ -152,6 +153,13 @@ export class NobleTransport implements BleTransport {
         }
       });
     });
+  }
+}
+
+export function configureNobleDbusAddress(env: NodeJS.ProcessEnv = process.env): void {
+  const address = env.PITPAT_DBUS_SYSTEM_BUS_ADDRESS?.trim();
+  if (address) {
+    env.DBUS_SYSTEM_BUS_ADDRESS = address;
   }
 }
 

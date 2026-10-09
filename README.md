@@ -130,6 +130,8 @@ HomeKit does not reliably tell a plugin whether a write came from a person, Siri
 
 The container needs access to the host Bluetooth stack or a dedicated HCI adapter. Device mapping and D-Bus configuration vary by host. Docker operation has not yet been verified and is not currently claimed as supported.
 
+When the plugin runs as an isolated child bridge with Noble's D-Bus binding, set `NOBLE_BINDINGS=dbus` and use `PITPAT_DBUS_SYSTEM_BUS_ADDRESS` for a host socket mounted at a non-default path. The plugin copies this value to `DBUS_SYSTEM_BUS_ADDRESS` inside its child process only, so container services such as Avahi continue using the container's own system bus. The D-Bus binding also requires `dbus-next` to be installed in the Homebridge environment.
+
 ### Common messages
 
 - `treadmill ... was not discovered`: verify the exact identifier, power, range, and that the mobile app is closed.

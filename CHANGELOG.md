@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. The project follows Semantic Versioning.
 
+## [0.1.4] - 2026-10-09
+
+### Fixed
+
+- Allow an isolated Homebridge child bridge to use a host BlueZ D-Bus socket via `PITPAT_DBUS_SYSTEM_BUS_ADDRESS` without redirecting Avahi or other container services.
+
 ## [0.1.3] - 2026-10-09
 
 ### Fixed
