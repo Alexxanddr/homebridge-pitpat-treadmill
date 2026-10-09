@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. The project follows Semantic Versioning.
 
+## [0.1.1] - 2026-10-09
+
+### Changed
+
+- Publish releases through GitHub Actions and npm Trusted Publishing with OIDC provenance.
+- Document the automated release procedure.
+
 ## [0.1.0] - 2026-10-09
 
 ### Added
