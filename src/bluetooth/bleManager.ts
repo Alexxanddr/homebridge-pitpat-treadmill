@@ -225,15 +225,23 @@ export class BleManager extends EventEmitter<BleManagerEvents> {
           resolve(event.status);
         }
       };
+      const onConnectionState = (state: ConnectionState): void => {
+        if (state === 'disconnected' || state === 'disconnecting') {
+          cleanup();
+          reject(new Error('BLE disconnected while waiting for treadmill confirmation'));
+        }
+      };
       const cleanup = (): void => {
         clearTimeout(timer);
         this.removeListener('status', onStatus);
+        this.removeListener('connectionState', onConnectionState);
       };
       const timer = setTimeout(() => {
         cleanup();
         reject(new Error('timed out waiting for treadmill confirmation'));
       }, timeoutMs);
       this.on('status', onStatus);
+      this.on('connectionState', onConnectionState);
     });
   }
 

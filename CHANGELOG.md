@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. The project follows Semantic Versioning.
 
+## [0.1.2] - 2026-10-09
+
+### Fixed
+
+- Always use the hardware-validated 1.5 km/h minimum for remote starts.
+- Prevent `RotationSpeed` changes from starting a stopped treadmill.
+- Debounce HomeKit speed-slider updates to avoid BLE command floods.
+- Handle disconnects during command confirmation without unhandled HomeKit write errors.
+- Remove the unsupported `StatusFault` characteristic from the `Fanv2` service.
+
 ## [0.1.1] - 2026-10-09
 
 ### Changed

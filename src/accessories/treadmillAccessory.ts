@@ -11,6 +11,9 @@ export class TreadmillAccessory {
   private readonly fanService: Service;
   private readonly telemetryService: TelemetryService;
   private targetSpeedKph = MINIMUM_COMMAND_SPEED_KPH;
+  private activeCommand: Promise<void> | undefined;
+  private pendingSpeedKph: number | undefined;
+  private speedUpdateTimer: NodeJS.Timeout | undefined;
 
   public constructor(
     private readonly accessory: PlatformAccessory,
@@ -38,7 +41,6 @@ export class TreadmillAccessory {
       .onGet(() => this.currentSpeedPercentage())
       .onSet(async (value) => this.setSpeed(value));
     this.fanService.getCharacteristic(Characteristic.CurrentFanState).onGet(() => this.currentFanState());
-    this.fanService.getCharacteristic(Characteristic.StatusFault).onGet(() => this.statusFault());
 
     accessory
       .getService(Service.AccessoryInformation)
@@ -73,40 +75,84 @@ export class TreadmillAccessory {
     return this.api.hap.Characteristic.CurrentFanState.INACTIVE;
   }
 
-  private statusFault(): number {
-    return this.bleManager.state === 'ready'
-      ? this.api.hap.Characteristic.StatusFault.NO_FAULT
-      : this.api.hap.Characteristic.StatusFault.GENERAL_FAULT;
-  }
-
   private async setActive(value: CharacteristicValue): Promise<void> {
     const active = Number(value) === this.api.hap.Characteristic.Active.ACTIVE;
-    if (!active) {
-      await this.bleManager.stopTreadmill();
+    if (this.activeCommand) {
+      await this.activeCommand;
       return;
     }
-    if (!this.config.allowRemoteStart) {
-      throw new this.api.hap.HapStatusError(this.api.hap.HAPStatus.NOT_ALLOWED_IN_CURRENT_STATE);
-    }
-    await this.bleManager.startTreadmill(this.targetSpeedKph);
+    this.activeCommand = this.applyActive(active)
+      .catch((error: unknown) => {
+        this.log.warn(`[PiTPAT] HomeKit ${active ? 'start' : 'stop'} request was not applied: ${errorMessage(error)}`);
+        this.refreshControlCharacteristics();
+      })
+      .finally(() => {
+        this.activeCommand = undefined;
+      });
+    await this.activeCommand;
   }
 
   private async setSpeed(value: CharacteristicValue): Promise<void> {
     const percentage = Number(value);
     if (percentage === 0) {
-      await this.bleManager.stopTreadmill();
+      await this.setActive(this.api.hap.Characteristic.Active.INACTIVE);
       return;
     }
     const deviceMaximum = this.bleManager.status?.maximumSpeedKph ?? this.config.maximumSpeedKph;
     const requested = percentageToSpeed(percentage, this.effectiveMaximumSpeed(deviceMaximum));
     this.targetSpeedKph = Math.max(MINIMUM_COMMAND_SPEED_KPH, requested);
     if (this.bleManager.status?.runningState === RunningState.Running) {
-      await this.bleManager.setSpeed(this.targetSpeedKph);
-    } else if (this.config.allowRemoteStart) {
-      await this.bleManager.startTreadmill(this.targetSpeedKph);
+      this.scheduleSpeedUpdate(this.targetSpeedKph);
     } else {
-      throw new this.api.hap.HapStatusError(this.api.hap.HAPStatus.NOT_ALLOWED_IN_CURRENT_STATE);
+      // RotationSpeed must never start a stopped treadmill. Active is the only
+      // HomeKit control allowed to request a remote start.
+      this.refreshControlCharacteristics();
     }
+  }
+
+  private async applyActive(active: boolean): Promise<void> {
+    if (!active) {
+      this.cancelPendingSpeedUpdate();
+      if (this.bleManager.status?.runningState === RunningState.Stopped) {
+        return;
+      }
+      await this.bleManager.stopTreadmill();
+      return;
+    }
+    if (!this.config.allowRemoteStart) {
+      throw new Error('remote start is disabled by configuration');
+    }
+    if (this.isActive() === this.api.hap.Characteristic.Active.ACTIVE) {
+      return;
+    }
+    // A remote start always uses the hardware-validated minimum. A separate,
+    // confirmed speed request may increase it only after Running is reported.
+    this.targetSpeedKph = MINIMUM_COMMAND_SPEED_KPH;
+    await this.bleManager.startTreadmill(MINIMUM_COMMAND_SPEED_KPH);
+  }
+
+  private scheduleSpeedUpdate(speedKph: number): void {
+    this.pendingSpeedKph = speedKph;
+    clearTimeout(this.speedUpdateTimer);
+    this.speedUpdateTimer = setTimeout(() => {
+      this.speedUpdateTimer = undefined;
+      const pendingSpeedKph = this.pendingSpeedKph;
+      this.pendingSpeedKph = undefined;
+      if (pendingSpeedKph === undefined || this.bleManager.status?.runningState !== RunningState.Running) {
+        return;
+      }
+      void this.bleManager.setSpeed(pendingSpeedKph).catch((error: unknown) => {
+        this.log.warn(`[PiTPAT] HomeKit speed request was not applied: ${errorMessage(error)}`);
+        this.refreshControlCharacteristics();
+      });
+    }, 750);
+    this.speedUpdateTimer.unref();
+  }
+
+  private cancelPendingSpeedUpdate(): void {
+    clearTimeout(this.speedUpdateTimer);
+    this.speedUpdateTimer = undefined;
+    this.pendingSpeedKph = undefined;
   }
 
   private updateStatus({ status }: StatusEvent): void {
@@ -116,7 +162,6 @@ export class TreadmillAccessory {
     this.fanService.updateCharacteristic(Characteristic.Active, this.isActive());
     this.fanService.updateCharacteristic(Characteristic.RotationSpeed, this.currentSpeedPercentage());
     this.fanService.updateCharacteristic(Characteristic.CurrentFanState, this.currentFanState());
-    this.fanService.updateCharacteristic(Characteristic.StatusFault, Characteristic.StatusFault.NO_FAULT);
     this.telemetryService.updateStatus(status);
     if (this.config.debug) {
       this.log.debug(`[PiTPAT] Speed updated: ${status.currentSpeedKph.toFixed(1)} km/h, state ${status.runningState}`);
@@ -124,16 +169,25 @@ export class TreadmillAccessory {
   }
 
   private updateConnectionState(state: ConnectionState): void {
-    this.fanService.updateCharacteristic(
-      this.api.hap.Characteristic.StatusFault,
-      state === 'ready'
-        ? this.api.hap.Characteristic.StatusFault.NO_FAULT
-        : this.api.hap.Characteristic.StatusFault.GENERAL_FAULT,
-    );
+    if (state !== 'ready') {
+      this.cancelPendingSpeedUpdate();
+      this.refreshControlCharacteristics();
+    }
     this.telemetryService.updateConnection(state);
+  }
+
+  private refreshControlCharacteristics(): void {
+    const { Characteristic } = this.api.hap;
+    this.fanService.updateCharacteristic(Characteristic.Active, this.isActive());
+    this.fanService.updateCharacteristic(Characteristic.RotationSpeed, this.currentSpeedPercentage());
+    this.fanService.updateCharacteristic(Characteristic.CurrentFanState, this.currentFanState());
   }
 
   private effectiveMaximumSpeed(deviceMaximumSpeedKph: number): number {
     return Math.min(this.config.maximumSpeedKph, deviceMaximumSpeedKph);
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

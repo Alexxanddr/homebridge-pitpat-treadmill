@@ -92,6 +92,21 @@ test('a write without status confirmation times out', async () => {
   await manager.shutdown();
 });
 
+test('a disconnect rejects an in-flight command without waiting for its timeout', async () => {
+  const transport = new MockTransport();
+  const manager = new BleManager(config, transport, logger, {
+    ...timings,
+    commandConfirmationTimeoutMs: 1_000,
+  });
+  await manager.start();
+  transport.connections[0].confirmWrites = false;
+  const command = manager.stopTreadmill();
+  await new Promise((resolve) => setImmediate(resolve));
+  transport.connections[0].disconnectListener(8);
+  await assert.rejects(command, /BLE disconnected/);
+  await manager.shutdown();
+});
+
 test('remote start is rejected before any BLE write', async () => {
   const transport = new MockTransport();
   const manager = new BleManager(config, transport, logger, timings);
