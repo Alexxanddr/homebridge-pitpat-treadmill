@@ -64,12 +64,13 @@ export class NobleTransport implements BleTransport {
     const noble = await this.loadNoble();
     await this.ensurePoweredOn(noble, timeoutMs);
     const peripheral = await this.findPeripheral(noble, deviceIdentifier, timeoutMs);
-    await peripheral.connectAsync();
 
     try {
-      const discovered = await peripheral.discoverSomeServicesAndCharacteristicsAsync(
-        [FBA_SERVICE_UUID],
-        [FBA_WRITE_UUID, FBA_NOTIFY_UUID],
+      await withTimeout(peripheral.connectAsync(), timeoutMs, 'BLE connection');
+      const discovered = await withTimeout(
+        peripheral.discoverSomeServicesAndCharacteristicsAsync([FBA_SERVICE_UUID], [FBA_WRITE_UUID, FBA_NOTIFY_UUID]),
+        timeoutMs,
+        'GATT discovery',
       );
       const writeCharacteristic = discovered.characteristics.find(
         (characteristic) => characteristic.uuid === FBA_WRITE_UUID,
@@ -85,10 +86,10 @@ export class NobleTransport implements BleTransport {
       }
 
       const connection = new NobleConnection(peripheral, writeCharacteristic, notifyCharacteristic);
-      await connection.initialize();
+      await withTimeout(connection.initialize(), timeoutMs, 'notification subscription');
       return connection;
     } catch (error) {
-      await peripheral.disconnectAsync().catch(() => undefined);
+      void peripheral.disconnectAsync().catch(() => undefined);
       throw error;
     }
   }
@@ -160,6 +161,20 @@ export function configureNobleDbusAddress(env: NodeJS.ProcessEnv = process.env):
   const address = env.PITPAT_DBUS_SYSTEM_BUS_ADDRESS?.trim();
   if (address) {
     env.DBUS_SYSTEM_BUS_ADDRESS = address;
+  }
+}
+
+export async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${operation} timed out after ${timeoutMs} ms`)), timeoutMs);
+    timer.unref();
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 

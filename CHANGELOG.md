@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. The project follows Semantic Versioning.
 
+## [0.1.5] - 2026-10-10
+
+### Fixed
+
+- Apply bounded timeouts to BLE connection, GATT discovery, and notification subscription so a stalled BlueZ operation cannot permanently stop the reconnect loop.
+- Make failed-connection cleanup non-blocking when the Bluetooth backend is unresponsive.
+
 ## [0.1.4] - 2026-10-09
 
 ### Fixed
